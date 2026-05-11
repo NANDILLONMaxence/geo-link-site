@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Site - Gestion de liaisons (Extended)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Panneau latéral -->
+        <aside class="sidebar">
+            <h1>Geo Site <span style="font-size:12px;color:#666;">v2.0</span></h1>
+            
+            <!-- Import -->
+            <section class="section">
+                <h2>Import</h2>
+                <div class="form-group">
+                    <label>CSV combiné:</label>
+                    <input type="file" id="importCsv" accept=".csv">
+                </div>
+                <div class="form-group">
+                    <label>GeoJSON sauvegarde:</label>
+                    <input type="file" id="importJson" accept=".json,.geojson">
+                </div>
+            </section>
+
+            <!-- Nouveau site -->
+            <section class="section">
+                <h2>Gestion Sites</h2>
+                <button id="btnNewSite" class="btn btn-primary">+ Ajouter un site</button>
+            </section>
+
+            <!-- Liaison manuelle -->
+            <section class="section">
+                <h2>Liaison Manuelle</h2>
+                <button id="btnManualLink" class="btn btn-info">Créer liaison manuelle</button>
+                <p style="font-size:11px;margin-top:8px;color:#666;">
+                    Mode: Cliquez sur 2 sites pour créer une liaison manuelle (bleu)
+                </p>
+            </section>
+
+            <!-- Mode Cercle -->
+            <section class="section">
+                <h2>Mode Cercle</h2>
+                <button id="btnCircleMode" class="btn btn-info">Mode cercle</button>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Rayon du cercle (km):</label>
+                    <input type="number" id="circleRadius" value="10" min="0.1" step="0.5">
+                </div>
+                <div style="margin-top:10px;">
+                    <button id="btnToggleCircles" class="btn btn-sm">Masquer cercles</button>
+                    <button id="btnClearCircles" class="btn btn-warning btn-sm">Effacer cercles</button>
+                </div>
+                <p style="font-size:11px;margin-top:8px;color:#666;">
+                    Cliquez sur un site pour créer un cercle marron
+                </p>
+            </section>
+
+            <!-- Affichage exclusions -->
+            <section class="section">
+                <h2>Affichage</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="toggleExcluded" checked>
+                        Afficher les liaisons exclues
+                    </label>
+                </div>
+            </section>
+
+            <!-- Paramètres de génération -->
+            <section class="section">
+                <h2>Génération Auto</h2>
+                <div class="form-group">
+                    <label>Algorithme:</label>
+                    <select id="algorithm">
+                        <option value="mst_aug">MST + Augmentation</option>
+                        <option value="greedy">Greedy</option>
+                        <option value="kconnect">K-Connectivity</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Distance max (km):</label>
+                    <input type="number" id="distanceMax" placeholder="Illimité" min="0" step="1">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="favorShortest" checked>
+                        Favoriser distances courtes
+                    </label>
+                </div>
+                <button id="btnGenerate" class="btn btn-success">Générer liaisons</button>
+                <button id="btnRegenerate" class="btn btn-warning">Regénérer</button>
+            </section>
+
+            <!-- Export -->
+            <section class="section">
+                <h2>Export</h2>
+                <button id="btnExportCsv" class="btn">Export CSV</button>
+                <button id="btnExportJson" class="btn">Export GeoJSON</button>
+                <button id="btnExportHtml" class="btn">Export HTML</button>
+            </section>
+
+            <!-- Reset -->
+            <section class="section">
+                <h2>Réinitialisation</h2>
+                <button id="btnReset" class="btn btn-danger" style="width:100%;">🔄 Reset Complet</button>
+            </section>
+
+            <!-- Liste des sites -->
+            <section class="section">
+                <h2>Sites (<span id="siteCount">0</span>/55)</h2>
+                <div id="sitesList" class="sites-list"></div>
+            </section>
+
+            <!-- Logs -->
+            <section class="section">
+                <h2>Logs</h2>
+                <div id="logs" class="logs"></div>
+            </section>
+        </aside>
+
+        <!-- Carte principale -->
+        <main class="map-container">
+            <div id="map"></div>
+        </main>
+    </div>
+
+    <!-- Modal Nouveau site -->
+    <div id="modalNewSite" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Nouveau site</h2>
+            <form id="formNewSite">
+                <div class="form-group">
+                    <label>Nom du site:</label>
+                    <input type="text" id="siteName" required>
+                </div>
+                <div class="form-group">
+                    <label>Latitude (DMS):</label>
+                    <input type="text" id="siteLat" placeholder="47°50'44.56''N" required>
+                    <small style="color:#666;font-size:11px;">Format: 47°50'44.56''N</small>
+                </div>
+                <div class="form-group">
+                    <label>Longitude (DMS):</label>
+                    <input type="text" id="siteLng" placeholder="2°20'30.00''E" required>
+                    <small style="color:#666;font-size:11px;">Format: 2°20'30.00''E</small>
+                </div>
+                <div class="form-group">
+                    <label>Min liaisons:</label>
+                    <input type="number" id="siteMinLinks" value="0" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Max liaisons:</label>
+                    <input type="number" id="siteMaxLinks" value="2" min="1" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
+                    <button type="button" class="btn" id="btnCancelNewSite">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Édition site -->
+    <div id="modalEditSite" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Éditer site</h2>
+            <form id="formEditSite">
+                <input type="hidden" id="editSiteId">
+                <div class="form-group">
+                    <label>Latitude (DMS):</label>
+                    <input type="text" id="editSiteLat" placeholder="47°50'44.56''N" required>
+                    <small style="color:#666;font-size:11px;">Format: 47°50'44.56''N</small>
+                </div>
+                <div class="form-group">
+                    <label>Longitude (DMS):</label>
+                    <input type="text" id="editSiteLng" placeholder="2°20'30.00''E" required>
+                    <small style="color:#666;font-size:11px;">Format: 2°20'30.00''E</small>
+                </div>
+                <div class="form-group">
+                    <label>Min liaisons:</label>
+                    <input type="number" id="editSiteMinLinks" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Max liaisons:</label>
+                    <input type="number" id="editSiteMaxLinks" min="1" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Sauvegarder</button>
+                    <button type="button" class="btn" id="btnCancelEditSite">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Confirmation liaison manuelle -->
+    <div id="modalManualLinkConfirm" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Confirmer liaison manuelle</h2>
+            <div style="padding:15px;background:#f9f9f9;border-radius:5px;margin-bottom:15px;">
+                <p><strong>Site A:</strong> <span id="manualLinkSiteA"></span></p>
+                <p><strong>Site B:</strong> <span id="manualLinkSiteB"></span></p>
+                <p><strong>Distance estimée:</strong> <span id="manualLinkDistance"></span> km</p>
+            </div>
+            <p style="color:#666;font-size:13px;">
+                Cette liaison sera créée manuellement et ne suivra aucune contrainte automatique.
+            </p>
+            <div class="form-actions">
+                <button id="btnConfirmManualLink" class="btn btn-success">Confirmer</button>
+                <button id="btnCancelManualLink" class="btn">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails lien -->
+    <div id="modalLinkDetails" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Détails de la liaison</h2>
+            <div id="linkDetails"></div>
+            <div class="form-actions">
+                <button id="btnToggleLink" class="btn btn-warning">Exclure</button>
+                <button id="btnDeleteLink" class="btn btn-danger">Supprimer définitivement</button>
+                <button id="btnCloseLinkDetails" class="btn">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+</body>
+</html>

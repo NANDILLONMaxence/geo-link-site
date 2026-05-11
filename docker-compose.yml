@@ -1,0 +1,17 @@
+services:
+  geo-link-site:
+    build: .
+    container_name: geo_link_site_app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+    environment:
+      - FLASK_APP=app.app
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: python -m flask run --host=0.0.0.0 --port=5000
+    restart: unless-stopped
