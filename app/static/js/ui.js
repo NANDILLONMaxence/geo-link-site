@@ -1,9 +1,9 @@
 /**
- * Gestion de l'interface utilisateur - VERSION CORRIGÃ‰E COMPLÃˆTE
- * VERSION Ã‰TENDUE avec liaisons manuelles et exclusions avancÃ©es
+ * Gestion de l'interface utilisateur - VERSION CORRIGÉE COMPLÈTE
+ * VERSION ÉTENDUE avec liaisons manuelles et exclusions avancées
  */
 
-// Ã‰tat global
+// État global
 let appState = {
     sites: [],
     links: [],
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * Configure tous les Ã©vÃ©nements
+ * Configure tous les événements
  */
 function setupEventListeners() {
     // Import
@@ -40,11 +40,11 @@ function setupEventListeners() {
     document.getElementById('formNewSite').addEventListener('submit', handleAddSite);
     document.getElementById('btnCancelNewSite').addEventListener('click', hideNewSiteModal);
     
-    // Ã‰dition site
+    // Édition site
     document.getElementById('formEditSite').addEventListener('submit', handleEditSite);
     document.getElementById('btnCancelEditSite').addEventListener('click', hideEditSiteModal);
     
-    // GÃ©nÃ©ration
+    // Génération
     document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
     document.getElementById('btnRegenerate').addEventListener('click', handleGenerate);
     
@@ -87,7 +87,7 @@ function setupEventListeners() {
         btnReset.addEventListener('click', handleReset);
     }
     
-    // DÃ©tails lien
+    // Détails lien
     const btnToggleLink = document.getElementById('btnToggleLink');
     if (btnToggleLink) {
         btnToggleLink.addEventListener('click', handleToggleLink);
@@ -129,7 +129,7 @@ function setupEventListeners() {
 }
 
 /**
- * Charge l'Ã©tat depuis le serveur
+ * Charge l'état depuis le serveur
  */
 async function loadStatus() {
     try {
@@ -142,7 +142,7 @@ async function loadStatus() {
 }
 
 /**
- * RafraÃ®chit toute l'interface
+ * Rafraîchit toute l'interface
  */
 function refreshUI() {
     refreshSitesList();
@@ -157,7 +157,7 @@ function refreshUI() {
 }
 
 /**
- * RafraÃ®chit la liste des sites
+ * Rafraîchit la liste des sites
  */
 function refreshSitesList() {
     const container = document.getElementById('sitesList');
@@ -169,7 +169,7 @@ function refreshSitesList() {
         
         const coords = site.lat_dms && site.lng_dms 
             ? `${site.lat_dms}, ${site.lng_dms}`
-            : `${site.lat.toFixed(4)}Â°, ${site.lng.toFixed(4)}Â°`;
+            : `${site.lat.toFixed(4)}°, ${site.lng.toFixed(4)}°`;
         
         // Compter les liaisons actives (auto + manuelles)
         const autoLinks = appState.links.filter(l => 
@@ -192,12 +192,12 @@ function refreshSitesList() {
                 </div>
             </div>
             <div class="site-actions">
-                <button class="btn btn-primary btn-sm" data-site-id="${site.id}" data-action="edit">Ã‰diter</button>
+                <button class="btn btn-primary btn-sm" data-site-id="${site.id}" data-action="edit">Éditer</button>
                 <button class="btn btn-warning btn-sm" data-site-id="${site.id}" data-action="delete">Suppr.</button>
             </div>
         `;
         
-        // Ajouter les Ã©vÃ©nements aux boutons
+        // Ajouter les événements aux boutons
         const editBtn = item.querySelector('[data-action="edit"]');
         const deleteBtn = item.querySelector('[data-action="delete"]');
         
@@ -209,7 +209,7 @@ function refreshSitesList() {
 }
 
 /**
- * RafraÃ®chit la carte
+ * Rafraîchit la carte
  */
 function refreshMap() {
     MapManager.refresh(
@@ -221,14 +221,14 @@ function refreshMap() {
 }
 
 /**
- * Met Ã  jour le compteur de sites
+ * Met à jour le compteur de sites
  */
 function updateSiteCount() {
     document.getElementById('siteCount').textContent = appState.sites.length;
 }
 
 /**
- * Met Ã  jour le toggle des exclusions
+ * Met à jour le toggle des exclusions
  */
 function updateToggleExcluded() {
     const toggle = document.getElementById('toggleExcluded');
@@ -297,7 +297,7 @@ async function handleImportJSON(e) {
             appState.manual_links = result.manual_links || [];
             appState.params = result.params || {};
             
-            // Mettre Ã  jour les paramÃ¨tres dans l'UI
+            // Mettre à jour les paramètres dans l'UI
             if (appState.params.algorithm) {
                 document.getElementById('algorithm').value = appState.params.algorithm;
             }
@@ -363,7 +363,7 @@ async function handleAddSite(e) {
 }
 
 /**
- * Affiche le modal Ã©dition site
+ * Affiche le modal édition site
  */
 function editSite(siteId) {
     const site = appState.sites.find(s => s.id === siteId);
@@ -371,12 +371,12 @@ function editSite(siteId) {
     
     document.getElementById('editSiteId').value = site.id;
     
-    // Utiliser DMS si disponible, sinon convertir depuis dÃ©cimal
+    // Utiliser DMS si disponible, sinon convertir depuis décimal
     if (site.lat_dms && site.lng_dms) {
         document.getElementById('editSiteLat').value = site.lat_dms;
         document.getElementById('editSiteLng').value = site.lng_dms;
     } else {
-        // Conversion approximative dÃ©cimal â†’ DMS pour affichage
+        // Conversion approximative décimal → DMS pour affichage
         document.getElementById('editSiteLat').value = decimalToDMS(site.lat, 'lat');
         document.getElementById('editSiteLng').value = decimalToDMS(site.lng, 'lng');
     }
@@ -388,7 +388,7 @@ function editSite(siteId) {
 }
 
 /**
- * Convertit dÃ©cimal en DMS (fonction helper)
+ * Convertit décimal en DMS (fonction helper)
  */
 function decimalToDMS(decimal, type) {
     const direction = type === 'lat' 
@@ -401,18 +401,18 @@ function decimalToDMS(decimal, type) {
     const minutes = Math.floor(minutesDecimal);
     const seconds = (minutesDecimal - minutes) * 60;
     
-    return `${degrees}Â°${minutes.toString().padStart(2, '0')}'${seconds.toFixed(2).padStart(5, '0')}''${direction}`;
+    return `${degrees}°${minutes.toString().padStart(2, '0')}'${seconds.toFixed(2).padStart(5, '0')}''${direction}`;
 }
 
 /**
- * Cache le modal Ã©dition site
+ * Cache le modal édition site
  */
 function hideEditSiteModal() {
     document.getElementById('modalEditSite').style.display = 'none';
 }
 
 /**
- * Gestion Ã©dition site
+ * Gestion édition site
  */
 async function handleEditSite(e) {
     e.preventDefault();
@@ -447,7 +447,7 @@ async function handleEditSite(e) {
  * Supprime un site
  */
 async function deleteSite(siteId) {
-    if (!confirm(`âš ï¸ Supprimer le site "${siteId}" ?\n\nToutes les liaisons associÃ©es seront Ã©galement supprimÃ©es.`)) {
+    if (!confirm(`⚠️ Supprimer le site "${siteId}" ?\n\nToutes les liaisons associées seront également supprimées.`)) {
         return;
     }
     
@@ -474,7 +474,7 @@ async function deleteSite(siteId) {
 }
 
 /**
- * Active/dÃ©sactive le mode crÃ©ation liaison manuelle
+ * Active/désactive le mode création liaison manuelle
  */
 function toggleManualLinkMode() {
     manualLinkModeActive = !manualLinkModeActive;
@@ -483,18 +483,18 @@ function toggleManualLinkMode() {
     if (manualLinkModeActive) {
         btn.classList.add('btn-active');
         btn.textContent = 'âœ“ Mode liaison manuelle';
-        addLog('Mode crÃ©ation liaison manuelle activÃ©. Cliquez sur deux sites.');
+        addLog('Mode création liaison manuelle activé. Cliquez sur deux sites.');
     } else {
         btn.classList.remove('btn-active');
-        btn.textContent = 'CrÃ©er liaison manuelle';
-        addLog('Mode crÃ©ation liaison manuelle dÃ©sactivÃ©.');
+        btn.textContent = 'Créer liaison manuelle';
+        addLog('Mode création liaison manuelle désactivé.');
     }
     
     MapManager.toggleManualLinkMode(manualLinkModeActive);
 }
 
 /**
- * Affiche la confirmation de crÃ©ation liaison manuelle
+ * Affiche la confirmation de création liaison manuelle
  */
 function showManualLinkConfirmation(siteA, siteB) {
     const siteAData = appState.sites.find(s => s.id === siteA);
@@ -526,7 +526,7 @@ function hideManualLinkConfirmModal() {
 }
 
 /**
- * Confirme la crÃ©ation de la liaison manuelle
+ * Confirme la création de la liaison manuelle
  */
 async function handleConfirmManualLink() {
     const modal = document.getElementById('modalManualLinkConfirm');
@@ -538,12 +538,12 @@ async function handleConfirmManualLink() {
         
         if (result.error) {
             alert('Erreur: ' + result.error);
-            addLog('Erreur crÃ©ation liaison: ' + result.error, 'error');
+            addLog('Erreur création liaison: ' + result.error, 'error');
         } else {
             appState.manual_links.push(result.link);
             
             if (result.warning) {
-                alert('âš ï¸ ' + result.warning);
+                alert('⚠️ ' + result.warning);
                 addLog('Warning: ' + result.warning, 'warning');
             }
             
@@ -558,11 +558,11 @@ async function handleConfirmManualLink() {
 }
 
 /**
- * Gestion gÃ©nÃ©ration
+ * Gestion génération
  */
 async function handleGenerate() {
     if (appState.sites.length < 2) {
-        alert('Au moins 2 sites sont nÃ©cessaires');
+        alert('Au moins 2 sites sont nécessaires');
         return;
     }
     
@@ -577,7 +577,7 @@ async function handleGenerate() {
     }
     
     try {
-        addLog('GÃ©nÃ©ration en cours...');
+        addLog('Génération en cours...');
         const result = await API.generate(params);
         
         if (result.error) {
@@ -622,18 +622,18 @@ async function handleToggleShowExcluded() {
  */
 async function handleReset() {
     const confirmation = confirm(
-        'âš ï¸ ATTENTION âš ï¸\n\n' +
-        'Cette action va SUPPRIMER DÃ‰FINITIVEMENT :\n' +
-        'â€¢ Tous les sites\n' +
-        'â€¢ Toutes les liaisons (auto + manuelles)\n' +
-        'â€¢ Toutes les exclusions\n' +
-        'â€¢ Tous les paramÃ¨tres\n\n' +
-        'Cette opÃ©ration est IRRÃ‰VERSIBLE !\n\n' +
-        'ÃŠtes-vous absolument certain de vouloir continuer ?'
+        '⚠️ ATTENTION ⚠️\n\n' +
+        'Cette action va SUPPRIMER DÉFINITIVEMENT :\n' +
+        '• Tous les sites\n' +
+        '• Toutes les liaisons (auto + manuelles)\n' +
+        '• Toutes les exclusions\n' +
+        '• Tous les paramètres\n\n' +
+        'Cette opération est IRRÉVERSIBLE !\n\n' +
+        'Êtes-vous absolument certain de vouloir continuer ?'
     );
     
     if (!confirmation) {
-        addLog('Reset annulÃ©');
+        addLog('Reset annulé');
         return;
     }
     
@@ -653,7 +653,7 @@ async function handleReset() {
             
             refreshUI();
             addLog(result.message);
-            alert('âœ… Application rÃ©initialisÃ©e avec succÃ¨s !');
+            alert('âœ… Application réinitialisée avec succès !');
         }
     } catch (error) {
         alert('Erreur: ' + error.message);
@@ -662,7 +662,7 @@ async function handleReset() {
 }
 
 /**
- * Affiche les dÃ©tails d'un lien
+ * Affiche les détails d'un lien
  */
 function showLinkDetails(link) {
     currentLinkId = link.id;
@@ -684,7 +684,7 @@ function showLinkDetails(link) {
     const deleteBtn = document.getElementById('btnDeleteLink');
     
     if (toggleBtn) {
-        toggleBtn.textContent = isExcluded ? 'RÃ©activer' : 'Exclure';
+        toggleBtn.textContent = isExcluded ? 'Réactiver' : 'Exclure';
         toggleBtn.style.display = 'inline-block';
     }
     
@@ -698,7 +698,7 @@ function showLinkDetails(link) {
 window.showLinkDetails = showLinkDetails;
 
 /**
- * Cache le modal dÃ©tails lien
+ * Cache le modal détails lien
  */
 function hideLinkDetailsModal() {
     document.getElementById('modalLinkDetails').style.display = 'none';
@@ -706,11 +706,11 @@ function hideLinkDetailsModal() {
 }
 
 /**
- * Toggle le statut d'un lien (exclure/rÃ©activer)
+ * Toggle le statut d'un lien (exclure/réactiver)
  */
 async function handleToggleLink() {
     if (!currentLinkId) {
-        addLog('Erreur: Aucun lien sÃ©lectionnÃ©', 'error');
+        addLog('Erreur: Aucun lien sélectionné', 'error');
         return;
     }
     
@@ -739,24 +739,24 @@ async function handleToggleLink() {
 }
 
 /**
- * Supprime dÃ©finitivement un lien
+ * Supprime définitivement un lien
  */
 async function handleDeleteLink() {
     if (!currentLinkId) {
-        addLog('Erreur: Aucun lien sÃ©lectionnÃ©', 'error');
+        addLog('Erreur: Aucun lien sélectionné', 'error');
         return;
     }
     
     const confirmation = confirm(
-        'âš ï¸ SUPPRESSION DÃ‰FINITIVE âš ï¸\n\n' +
-        'Cette action va supprimer dÃ©finitivement cette liaison.\n\n' +
+        '⚠️ SUPPRESSION DÉFINITIVE ⚠️\n\n' +
+        'Cette action va supprimer définitivement cette liaison.\n\n' +
         'Si c\'est une liaison manuelle, elle sera perdue.\n' +
-        'Si c\'est une liaison automatique, elle pourra Ãªtre recrÃ©Ã©e lors d\'une prochaine gÃ©nÃ©ration.\n\n' +
+        'Si c\'est une liaison automatique, elle pourra être recréée lors d\'une prochaine génération.\n\n' +
         'Confirmer la suppression ?'
     );
     
     if (!confirmation) {
-        addLog('Suppression annulÃ©e');
+        addLog('Suppression annulée');
         return;
     }
     
@@ -779,12 +779,12 @@ async function handleDeleteLink() {
     }
 }
 
-// Exposer les fonctions nÃ©cessaires
+// Exposer les fonctions nécessaires
 window.editSite = editSite;
 window.deleteSite = deleteSite;
 
 /**
- * Active/dÃ©sactive le mode cercle
+ * Active/désactive le mode cercle
  */
 function toggleCircleMode() {
     circleModeActive = !circleModeActive;
@@ -793,23 +793,23 @@ function toggleCircleMode() {
     if (circleModeActive) {
         btn.classList.add('btn-active');
         btn.textContent = 'âœ“ Mode cercle actif';
-        addLog('Mode cercle activÃ©. Cliquez sur un site.');
+        addLog('Mode cercle activé. Cliquez sur un site.');
         
-        // DÃ©sactiver le mode liaison manuelle si actif
+        // Désactiver le mode liaison manuelle si actif
         if (manualLinkModeActive) {
             toggleManualLinkMode();
         }
     } else {
         btn.classList.remove('btn-active');
         btn.textContent = 'Mode cercle';
-        addLog('Mode cercle dÃ©sactivÃ©.');
+        addLog('Mode cercle désactivé.');
     }
     
     MapManager.toggleCircleMode(circleModeActive);
 }
 
 /**
- * GÃ¨re le clic sur un site en mode cercle
+ * Gère le clic sur un site en mode cercle
  */
 async function handleSiteClickForCircle(siteId) {
     const radiusKm = parseFloat(document.getElementById('circleRadius').value) || 10;
@@ -819,9 +819,9 @@ async function handleSiteClickForCircle(siteId) {
         
         if (result.error) {
             alert('Erreur: ' + result.error);
-            addLog('Erreur crÃ©ation cercle: ' + result.error, 'error');
+            addLog('Erreur création cercle: ' + result.error, 'error');
         } else {
-            // Ajouter Ã  l'Ã©tat local
+            // Ajouter à l'état local
             appState.circles.push(result.circle);
             
             // Afficher sur la carte
@@ -848,7 +848,7 @@ function handleToggleCircles() {
     btn.textContent = showCircles ? 'Masquer cercles' : 'Afficher cercles';
     
     MapManager.toggleCirclesVisibility(showCircles);
-    addLog(showCircles ? 'Cercles affichÃ©s' : 'Cercles masquÃ©s');
+    addLog(showCircles ? 'Cercles affichés' : 'Cercles masqués');
 }
 
 /**
