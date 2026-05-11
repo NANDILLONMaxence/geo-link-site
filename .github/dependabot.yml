@@ -13,6 +13,9 @@ updates:
         update-types:
           - minor
           - patch
+      python-major:
+        update-types:
+          - major
 
   - package-ecosystem: github-actions
     directory: /
@@ -27,6 +30,9 @@ updates:
         update-types:
           - minor
           - patch
+      actions-major:
+        update-types:
+          - major
 
   - package-ecosystem: docker
     directory: /
