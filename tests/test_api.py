@@ -1,5 +1,4 @@
 import json
-import pytest
 from app.app import app_state
 
 
