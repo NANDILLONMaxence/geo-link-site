@@ -9,7 +9,7 @@ itsdangerous==2.2.0
 # Géospatial
 pyproj==3.7.2
 geopy==2.4.1
-geojson==3.2.0
+geojson==3.3.0
 
 # Graphes et algorithmes
 networkx==3.6.1
