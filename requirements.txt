@@ -15,4 +15,4 @@ geojson==3.3.0
 networkx==3.6.1
 
 # Manipulation de données
-pandas==3.0.4
+pandas==3.0.5
