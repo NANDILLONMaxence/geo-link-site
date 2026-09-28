@@ -12,7 +12,7 @@ geopy==2.5.0
 geojson==3.3.0
 
 # Graphes et algorithmes
-networkx==3.6.1
+networkx==3.7
 
 # Manipulation de données
 pandas==3.0.6
