@@ -1,5 +1,5 @@
 # Image Python officielle légère
-FROM python:3.14-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 # Répertoire de travail dans le conteneur
 WORKDIR /app
