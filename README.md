@@ -5,8 +5,10 @@
 **Génération automatique et manuelle de liaisons réseau entre sites géographiques**
 **Automatic and manual network link generation between geographic sites**
 
-[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![CI](https://github.com/NANDILLONMaxence/geo-link-site/actions/workflows/ci.yml/badge.svg)](https://github.com/NANDILLONMaxence/geo-link-site/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/NANDILLONMaxence/geo-link-site/actions/workflows/codeql.yml/badge.svg)](https://github.com/NANDILLONMaxence/geo-link-site/actions/workflows/codeql.yml)
+[![Python](https://img.shields.io/badge/Python-3.12--3.15-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -161,7 +163,7 @@ Vise une **k-connectivité de nœud** (le graphe reste connexe même après supp
 ### Prérequis
 
 - **Soit** Docker + Docker Compose (recommandé)
-- **Soit** Python 3.11+ avec pip
+- **Soit** Python 3.12+ avec pip
 
 ### Option 1 — Docker (recommandé)
 
@@ -178,6 +180,15 @@ Pour arrêter :
 ```bash
 docker compose down
 ```
+
+Le conteneur tourne avec gunicorn sous un utilisateur non privilégié. Pour développer
+(rechargement automatique, débogueur Flask, port publié sur `127.0.0.1` uniquement) :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Image publiée à chaque release : `docker run -p 5000:5000 ghcr.io/nandillonmaxence/geo-link-site:latest`
 
 ### Option 2 — Installation locale Python
 
@@ -198,7 +209,7 @@ export FLASK_APP=app.app           # Linux / macOS
 # set FLASK_APP=app.app            # Windows cmd
 # $env:FLASK_APP="app.app"         # Windows PowerShell
 
-flask run --host=0.0.0.0 --port=5000
+flask run --port=5000
 ```
 
 Puis ouvre [http://localhost:5000](http://localhost:5000).
@@ -261,11 +272,17 @@ geo-link-site/
 │           ├── api.js            # Client HTTP vers le backend
 │           ├── map.js            # Gestion carte Leaflet
 │           └── ui.js             # Logique UI
-├── docs/                         # (réservé pour documentation future)
+├── tests/                        # Tests pytest (API, algorithmes, import/export)
+├── .github/
+│   ├── dependabot.yml            # Mises à jour automatiques des dépendances
+│   └── workflows/                # CI, CodeQL, dependency review, release, auto-merge
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml            # Production (gunicorn)
+├── docker-compose.dev.yml        # Développement (debug, rechargement)
 ├── requirements.txt
-├── .gitignore
+├── requirements-dev.txt          # pytest, flake8, pip-audit, bandit
+├── CHANGELOG.md
+├── SECURITY.md
 ├── LICENSE
 └── README.md
 ```
@@ -313,8 +330,6 @@ Les contributions sont les bienvenues ! Pour proposer une amélioration :
 Idées d'améliorations à explorer :
 - Persistance des données (SQLite, PostgreSQL / PostGIS)
 - Support de plus de 55 sites
-- Tests unitaires (pytest)
-- CI/CD (GitHub Actions)
 - Internationalisation (i18n) FR / EN
 - Algorithme supplémentaire (Steiner tree, par exemple)
 
@@ -468,7 +483,7 @@ Targets **node k-connectivity** (the graph stays connected even after removing `
 ### Prerequisites
 
 - **Either** Docker + Docker Compose (recommended)
-- **Or** Python 3.11+ with pip
+- **Or** Python 3.12+ with pip
 
 ### Option 1 — Docker (recommended)
 
@@ -485,6 +500,15 @@ To stop:
 ```bash
 docker compose down
 ```
+
+The container runs gunicorn as an unprivileged user. For development
+(auto-reload, Flask debugger, port bound to `127.0.0.1` only):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Image published on every release: `docker run -p 5000:5000 ghcr.io/nandillonmaxence/geo-link-site:latest`
 
 ### Option 2 — Local Python install
 
@@ -505,7 +529,7 @@ export FLASK_APP=app.app           # Linux / macOS
 # set FLASK_APP=app.app            # Windows cmd
 # $env:FLASK_APP="app.app"         # Windows PowerShell
 
-flask run --host=0.0.0.0 --port=5000
+flask run --port=5000
 ```
 
 Then open [http://localhost:5000](http://localhost:5000).
@@ -570,11 +594,17 @@ geo-link-site/
 │           ├── api.js            # HTTP client to backend
 │           ├── map.js            # Leaflet map management
 │           └── ui.js             # UI logic
-├── docs/                         # (reserved for future documentation)
+├── tests/                        # pytest tests (API, algorithms, import/export)
+├── .github/
+│   ├── dependabot.yml            # Automatic dependency updates
+│   └── workflows/                # CI, CodeQL, dependency review, release, auto-merge
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml            # Production (gunicorn)
+├── docker-compose.dev.yml        # Development (debug, reload)
 ├── requirements.txt
-├── .gitignore
+├── requirements-dev.txt          # pytest, flake8, pip-audit, bandit
+├── CHANGELOG.md
+├── SECURITY.md
 ├── LICENSE
 └── README.md
 ```
@@ -622,8 +652,6 @@ Contributions are welcome! To propose an improvement:
 Ideas to explore:
 - Data persistence (SQLite, PostgreSQL / PostGIS)
 - Support for more than 55 sites
-- Unit tests (pytest)
-- CI/CD (GitHub Actions)
 - UI internationalization (i18n) FR / EN
 - Additional algorithm (Steiner tree, for instance)
 

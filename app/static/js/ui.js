@@ -168,7 +168,7 @@ function refreshSitesList() {
         item.className = 'site-item' + (site.status === 'error' ? ' error' : '');
         
         const coords = site.lat_dms && site.lng_dms 
-            ? `${site.lat_dms}, ${site.lng_dms}`
+            ? `${escapeHtml(site.lat_dms)}, ${escapeHtml(site.lng_dms)}`
             : `${site.lat.toFixed(4)}°, ${site.lng.toFixed(4)}°`;
         
         // Compter les liaisons actives (auto + manuelles)
@@ -184,16 +184,16 @@ function refreshSitesList() {
         
         item.innerHTML = `
             <div class="site-info">
-                <div class="site-name">${site.id}</div>
+                <div class="site-name">${escapeHtml(site.id)}</div>
                 <div class="site-coords">${coords}</div>
                 <div class="site-constraints">
-                    Min/Max: ${site.min_links}/${site.max_links} | 
+                    Min/Max: ${escapeHtml(site.min_links)}/${escapeHtml(site.max_links)} | 
                     Liens: ${totalLinks} (${autoLinks}A + ${manualLinks}M)
                 </div>
             </div>
             <div class="site-actions">
-                <button class="btn btn-primary btn-sm" data-site-id="${site.id}" data-action="edit">Éditer</button>
-                <button class="btn btn-warning btn-sm" data-site-id="${site.id}" data-action="delete">Suppr.</button>
+                <button class="btn btn-primary btn-sm" data-site-id="${escapeHtml(site.id)}" data-action="edit">Éditer</button>
+                <button class="btn btn-warning btn-sm" data-site-id="${escapeHtml(site.id)}" data-action="delete">Suppr.</button>
             </div>
         `;
         
@@ -482,7 +482,7 @@ function toggleManualLinkMode() {
     const btn = document.getElementById('btnManualLink');
     if (manualLinkModeActive) {
         btn.classList.add('btn-active');
-        btn.textContent = 'âœ“ Mode liaison manuelle';
+        btn.textContent = '✓ Mode liaison manuelle';
         addLog('Mode création liaison manuelle activé. Cliquez sur deux sites.');
     } else {
         btn.classList.remove('btn-active');
@@ -653,7 +653,7 @@ async function handleReset() {
             
             refreshUI();
             addLog(result.message);
-            alert('âœ… Application réinitialisée avec succès !');
+            alert('✅ Application réinitialisée avec succès !');
         }
     } catch (error) {
         alert('Erreur: ' + error.message);
@@ -672,10 +672,10 @@ function showLinkDetails(link) {
     
     const detailsContainer = document.getElementById('linkDetails');
     detailsContainer.innerHTML = `
-        <p><strong>ID:</strong> ${link.id}</p>
+        <p><strong>ID:</strong> ${escapeHtml(link.id)}</p>
         <p><strong>Type:</strong> ${linkType}</p>
-        <p><strong>Site A:</strong> ${link.site_a}</p>
-        <p><strong>Site B:</strong> ${link.site_b}</p>
+        <p><strong>Site A:</strong> ${escapeHtml(link.site_a)}</p>
+        <p><strong>Site B:</strong> ${escapeHtml(link.site_b)}</p>
         <p><strong>Distance:</strong> ${link.distance_km.toFixed(2)} km</p>
         <p><strong>Statut:</strong> ${isExcluded ? 'Exclu' : 'Actif'}</p>
     `;
@@ -792,7 +792,7 @@ function toggleCircleMode() {
     const btn = document.getElementById('btnCircleMode');
     if (circleModeActive) {
         btn.classList.add('btn-active');
-        btn.textContent = 'âœ“ Mode cercle actif';
+        btn.textContent = '✓ Mode cercle actif';
         addLog('Mode cercle activé. Cliquez sur un site.');
         
         // Désactiver le mode liaison manuelle si actif

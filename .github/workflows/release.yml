@@ -6,22 +6,58 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
-  release:
-    name: Build and release
+  verify:
+    name: Verify before release
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Extract version and lowercase repo
-        id: meta
+      - name: Check tag matches VERSION and app/__init__.py
         run: |
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-          echo "REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          TAG="${GITHUB_REF_NAME#v}"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          PKG_VERSION="$(python3 -c "import re; print(re.search(r\"__version__ = '([^']+)'\", open('app/__init__.py').read()).group(1))")"
+          echo "tag=$TAG VERSION=$FILE_VERSION app=$PKG_VERSION"
+          test "$TAG" = "$FILE_VERSION" && test "$TAG" = "$PKG_VERSION"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+          cache: pip
+
+      - name: Run tests and security audit
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          pytest --cov=app --cov-fail-under=80
+          pip-audit -r requirements.txt --strict
+
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -38,16 +74,25 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.REPO }}:${{ steps.meta.outputs.VERSION }}
-            ghcr.io/${{ steps.meta.outputs.REPO }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "Release ${{ github.ref_name }}" \
+          NOTES_FILE=$(mktemp)
+          # Section du CHANGELOG correspondant à la version, si elle existe
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[" v "\\]" {found=1; next}
+            found && /^## \[/ {exit}
+            found {print}
+          ' CHANGELOG.md > "$NOTES_FILE" || true
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Release $GITHUB_REF_NAME" \
+            --notes-file "$NOTES_FILE" \
             --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

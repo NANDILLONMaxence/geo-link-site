@@ -2,6 +2,10 @@
 Application Flask principale pour Geo Site - VERSION ÉTENDUE
 Avec gestion des liaisons manuelles et exclusions avancées
 """
+import logging
+import math
+import os
+import re
 from flask import Flask, render_template, request, jsonify, send_file
 from io import BytesIO
 
@@ -15,6 +19,81 @@ from .algorithms.kconnect import KConnectivityApproximation
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
+
+logger = logging.getLogger(__name__)
+
+MAX_SITES = 55
+MAX_SITE_ID_LENGTH = 100
+MANUAL_ID_RE = re.compile(r'^manual_(\d+)$')
+
+
+class InvalidInput(ValueError):
+    """Entrée utilisateur invalide : renvoyée au client en 400."""
+
+
+def _json_body():
+    """Retourne le corps JSON de la requête, ou lève InvalidInput."""
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise InvalidInput('Corps JSON invalide ou manquant')
+    return data
+
+
+def _int_field(value, name):
+    """Convertit un champ en entier positif ou nul."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        raise InvalidInput(f'{name} doit être un entier')
+    if number < 0:
+        raise InvalidInput(f'{name} doit être positif ou nul')
+    return number
+
+
+def _positive_float(value, name):
+    """Convertit un champ en nombre fini strictement positif."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise InvalidInput(f'{name} doit être un nombre')
+    if not math.isfinite(number) or number <= 0:
+        raise InvalidInput(f'{name} doit être un nombre strictement positif')
+    return number
+
+
+def _read_upload():
+    """Lit le fichier envoyé (UTF-8, BOM toléré)."""
+    file = request.files.get('file')
+    if not file:
+        raise InvalidInput('Aucun fichier fourni')
+    try:
+        return file.read().decode('utf-8-sig')
+    except UnicodeDecodeError:
+        raise InvalidInput('Le fichier doit être encodé en UTF-8')
+
+
+def _max_manual_id(manual_links):
+    """Plus grand numéro N parmi les IDs « manual_N » (0 si aucun)."""
+    ids = [int(m.group(1)) for m in (MANUAL_ID_RE.match(str(lnk.get('id', ''))) for lnk in manual_links) if m]
+    return max(ids, default=0)
+
+
+def _error_response(exc):
+    """400 pour une entrée invalide, 500 générique sinon (détail dans les logs)."""
+    if isinstance(exc, InvalidInput):
+        return jsonify({'error': str(exc)}), 400
+    logger.exception('Erreur interne')
+    return jsonify({'error': 'Erreur interne du serveur'}), 500
+
+
+@app.after_request
+def set_security_headers(response):
+    """En-têtes de sécurité de base."""
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'same-origin')
+    return response
+
 
 # État de l'application (en mémoire)
 app_state = {
@@ -80,18 +159,14 @@ def get_status():
 def import_csv():
     """Importe un fichier CSV combiné."""
     try:
-        file = request.files.get('file')
-        if not file:
-            return jsonify({'error': 'Aucun fichier fourni'}), 400
-
-        csv_content = file.read().decode('utf-8')
+        csv_content = _read_upload()
         sites, links, manual_links, error_msg = storage.parse_csv_extended(csv_content)
 
         if error_msg:
             return jsonify({'error': error_msg}), 400
 
-        if len(sites) > 55:
-            return jsonify({'error': 'Maximum 55 sites autorisés'}), 400
+        if len(sites) > MAX_SITES:
+            return jsonify({'error': f'Maximum {MAX_SITES} sites autorisés'}), 400
 
         # Vérifier unicité des noms
         names = [s['id'] for s in sites]
@@ -104,9 +179,7 @@ def import_csv():
         app_state['excluded_links'] = set()
 
         # Mettre à jour le compteur manuel
-        if manual_links:
-            max_id = max([int(lnk['id'].replace('manual_', '')) for lnk in manual_links if lnk['id'].startswith('manual_')])
-            app_state['manual_link_counter'] = max_id
+        app_state['manual_link_counter'] = _max_manual_id(manual_links)
 
         return jsonify({
             'success': True,
@@ -117,25 +190,21 @@ def import_csv():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/import_json', methods=['POST'])
 def import_json():
     """Importe un fichier JSON de sauvegarde."""
     try:
-        file = request.files.get('file')
-        if not file:
-            return jsonify({'error': 'Aucun fichier fourni'}), 400
-
-        json_content = file.read().decode('utf-8')
+        json_content = _read_upload()
         sites, links, manual_links, params, excluded, error_msg = storage.parse_json_extended(json_content)
 
         if error_msg:
             return jsonify({'error': error_msg}), 400
 
-        if len(sites) > 55:
-            return jsonify({'error': 'Maximum 55 sites autorisés'}), 400
+        if len(sites) > MAX_SITES:
+            return jsonify({'error': f'Maximum {MAX_SITES} sites autorisés'}), 400
 
         # Charger les données
         app_state['sites'] = sites
@@ -145,9 +214,7 @@ def import_json():
         app_state['excluded_links'] = set(excluded)
 
         # Mettre à jour le compteur manuel
-        if manual_links:
-            max_id = max([int(lnk['id'].replace('manual_', '')) for lnk in manual_links if lnk['id'].startswith('manual_')])
-            app_state['manual_link_counter'] = max_id
+        app_state['manual_link_counter'] = _max_manual_id(manual_links)
 
         return jsonify({
             'success': True,
@@ -159,28 +226,32 @@ def import_json():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/add_site', methods=['POST'])
 def add_site():
     """Ajoute un nouveau site."""
     try:
-        data = request.get_json()
+        data = _json_body()
 
-        site_id = data.get('id', '').strip()
+        site_id = str(data.get('id') or '').strip()
         if not site_id:
             return jsonify({'error': 'ID manquant'}), 400
+        if len(site_id) > MAX_SITE_ID_LENGTH:
+            return jsonify({'error': f'ID trop long ({MAX_SITE_ID_LENGTH} caractères max)'}), 400
 
         # Vérifier unicité
         if any(s['id'] == site_id for s in app_state['sites']):
             return jsonify({'error': f'Site "{site_id}" existe déjà'}), 400
 
-        if len(app_state['sites']) >= 55:
-            return jsonify({'error': 'Maximum 55 sites atteint'}), 400
+        if len(app_state['sites']) >= MAX_SITES:
+            return jsonify({'error': f'Maximum {MAX_SITES} sites atteint'}), 400
 
-        lat_dms = data.get('lat_dms', '').strip()
-        lng_dms = data.get('lng_dms', '').strip()
+        lat_dms = str(data.get('lat_dms') or '').strip()
+        lng_dms = str(data.get('lng_dms') or '').strip()
+        min_links = _int_field(data.get('min_links', 0), 'min_links')
+        max_links = _int_field(data.get('max_links', 2), 'max_links')
 
         # Conversion DMS vers décimal
         try:
@@ -194,8 +265,8 @@ def add_site():
             'lng_dms': lng_dms,
             'lat': round(lat, 6),
             'lng': round(lng, 6),
-            'min_links': int(data.get('min_links', 0)),
-            'max_links': int(data.get('max_links', 2)),
+            'min_links': min_links,
+            'max_links': max_links,
             'link_ids': [],
             'status': 'ok'
         }
@@ -209,15 +280,15 @@ def add_site():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/edit_site', methods=['POST'])
 def edit_site():
     """Édite un site existant."""
     try:
-        data = request.get_json()
-        site_id = data.get('id', '').strip()
+        data = _json_body()
+        site_id = str(data.get('id') or '').strip()
 
         # Trouver le site
         site = next((s for s in app_state['sites'] if s['id'] == site_id), None)
@@ -226,23 +297,26 @@ def edit_site():
 
         # Mettre à jour
         if 'lat_dms' in data and 'lng_dms' in data:
-            lat_dms = data['lat_dms'].strip()
-            lng_dms = data['lng_dms'].strip()
+            lat_dms = str(data['lat_dms'] or '').strip()
+            lng_dms = str(data['lng_dms'] or '').strip()
 
             try:
                 lng, lat = converter.dms_to_decimal(lat_dms, lng_dms)
             except ValueError as e:
                 return jsonify({'error': f'Coordonnées invalides: {str(e)}'}), 400
 
+        min_links = _int_field(data['min_links'], 'min_links') if 'min_links' in data else None
+        max_links = _int_field(data['max_links'], 'max_links') if 'max_links' in data else None
+
+        if 'lat_dms' in data and 'lng_dms' in data:
             site['lat_dms'] = lat_dms
             site['lng_dms'] = lng_dms
             site['lat'] = round(lat, 6)
             site['lng'] = round(lng, 6)
-
-        if 'min_links' in data:
-            site['min_links'] = int(data['min_links'])
-        if 'max_links' in data:
-            site['max_links'] = int(data['max_links'])
+        if min_links is not None:
+            site['min_links'] = min_links
+        if max_links is not None:
+            site['max_links'] = max_links
 
         return jsonify({
             'success': True,
@@ -251,15 +325,15 @@ def edit_site():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/delete_site', methods=['POST'])
 def delete_site():
     """Supprime un site."""
     try:
-        data = request.get_json()
-        site_id = data.get('id', '').strip()
+        data = _json_body()
+        site_id = str(data.get('id') or '').strip()
 
         # Supprimer le site
         app_state['sites'] = [s for s in app_state['sites'] if s['id'] != site_id]
@@ -280,14 +354,14 @@ def delete_site():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/create_manual_link', methods=['POST'])
 def create_manual_link():
     """Crée une liaison manuelle entre deux sites."""
     try:
-        data = request.get_json()
+        data = _json_body()
         site_a_id = data.get('site_a')
         site_b_id = data.get('site_b')
 
@@ -371,14 +445,14 @@ def create_manual_link():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/generate', methods=['POST'])
 def generate_links():
     """Génère les liaisons automatiques."""
     try:
-        data = request.get_json()
+        data = _json_body()
 
         # Mettre à jour les paramètres
         algorithm = data.get('algorithm', 'mst_aug')
@@ -401,7 +475,7 @@ def generate_links():
         # Filtrer par distance max
         if distance_max_km:
             filtered_distances = computer.filter_by_distance(
-                all_distances, float(distance_max_km)
+                all_distances, _positive_float(distance_max_km, 'distance_max_km')
             )
         else:
             filtered_distances = all_distances
@@ -498,14 +572,14 @@ def generate_links():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/toggle_link', methods=['POST'])
 def toggle_link():
     """Active/désactive un lien (exclut ou réactive)."""
     try:
-        data = request.get_json()
+        data = _json_body()
         link_id = data.get('link_id')
 
         # Chercher dans les liens auto
@@ -538,15 +612,19 @@ def toggle_link():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/delete_link', methods=['POST'])
 def delete_link():
     """Supprime définitivement un lien."""
     try:
-        data = request.get_json()
+        data = _json_body()
         link_id = data.get('link_id')
+
+        link = next((lnk for lnk in get_all_links_including_excluded() if lnk['id'] == link_id), None)
+        if not link:
+            return jsonify({'error': 'Lien introuvable'}), 404
 
         # Chercher et supprimer dans les liens auto
         app_state['links'] = [lnk for lnk in app_state['links'] if lnk['id'] != link_id]
@@ -554,8 +632,9 @@ def delete_link():
         # Chercher et supprimer dans les liens manuels
         app_state['manual_links'] = [lnk for lnk in app_state['manual_links'] if lnk['id'] != link_id]
 
-        # Retirer des exclusions
-        app_state['excluded_links'] = {e for e in app_state['excluded_links'] if link_id not in e}
+        # Retirer des exclusions (clés « siteA-siteB » dans les deux sens)
+        app_state['excluded_links'].discard(f"{link['site_a']}-{link['site_b']}")
+        app_state['excluded_links'].discard(f"{link['site_b']}-{link['site_a']}")
 
         return jsonify({
             'success': True,
@@ -563,7 +642,7 @@ def delete_link():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/toggle_show_excluded', methods=['POST'])
@@ -579,7 +658,7 @@ def toggle_show_excluded():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/reset_all', methods=['POST'])
@@ -606,16 +685,16 @@ def reset_all():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/add_circle', methods=['POST'])
 def add_circle():
     """Ajoute un cercle autour d'un site."""
     try:
-        data = request.get_json()
+        data = _json_body()
         site_id = data.get('site_id')
-        radius_km = float(data.get('radius_km', 10))
+        radius_km = _positive_float(data.get('radius_km', 10), 'radius_km')
 
         if not site_id:
             return jsonify({'error': 'Site ID manquant'}), 400
@@ -639,7 +718,7 @@ def add_circle():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/clear_circles', methods=['POST'])
@@ -654,7 +733,7 @@ def clear_circles():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/export_csv', methods=['GET'])
@@ -679,7 +758,7 @@ def export_csv():
         )
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/export_json', methods=['GET'])
@@ -706,7 +785,7 @@ def export_json():
         )
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 @app.route('/export_html', methods=['GET'])
@@ -729,8 +808,11 @@ def export_html():
         )
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return _error_response(e)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Debug uniquement sur demande explicite : le débogueur Werkzeug permet
+    # d'exécuter du code arbitraire sur la machine.
+    host = os.environ.get('FLASK_RUN_HOST', '127.0.0.1')
+    app.run(host=host, port=5000, debug=os.environ.get('FLASK_DEBUG') == '1')
