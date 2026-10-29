@@ -26,7 +26,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versionnement
 - Dépendances inutilisées retirées : `pandas`, `geopy`, `geojson`.
 - CI : audit des dépendances (pip-audit), analyse statique (bandit, CodeQL), revue des dépendances sur PR, build + test de fumée Docker, seuil de couverture 80 %.
 - L'auto-merge Dependabot attend désormais que la CI soit verte (job requis `CI OK`).
-- Release : tests et audit avant publication, vérification tag = `VERSION`, image signée avec SBOM et provenance.
+- Release : tests et audit avant publication, vérification tag = `VERSION`, image avec SBOM et provenance ; actions tierces épinglées par SHA (alerte CodeQL `actions/unpinned-tag`).
 - 37 tests ajoutés (139 au total), couverture 63 % → 86 %.
 
 ## [2.0.0] - 2026-05-11
