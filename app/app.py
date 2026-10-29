@@ -81,7 +81,8 @@ def _max_manual_id(manual_links):
 def _error_response(exc):
     """400 pour une entrée invalide, 500 générique sinon (détail dans les logs)."""
     if isinstance(exc, InvalidInput):
-        return jsonify({'error': str(exc)}), 400
+        logger.warning("Entrée invalide: %s", exc)
+        return jsonify({'error': 'Requête invalide'}), 400
     logger.exception('Erreur interne')
     return jsonify({'error': 'Erreur interne du serveur'}), 500
 
