@@ -88,7 +88,7 @@ const MapManager = {
                 siteId: site.id
             });
             
-            marker.bindTooltip(site.id, {
+            marker.bindTooltip(escapeHtml(site.id), {
                 permanent: true,
                 direction: 'right',
                 className: 'site-label',
@@ -96,10 +96,10 @@ const MapManager = {
             });
             
             const popupContent = `
-                <strong>${site.id}</strong><br>
+                <strong>${escapeHtml(site.id)}</strong><br>
                 Lat: ${site.lat.toFixed(6)}<br>
                 Lng: ${site.lng.toFixed(6)}<br>
-                Min/Max liens: ${site.min_links}/${site.max_links}<br>
+                Min/Max liens: ${escapeHtml(site.min_links)}/${escapeHtml(site.max_links)}<br>
                 Liaisons actives: ${site.link_ids ? site.link_ids.length : 0}
             `;
             marker.bindPopup(popupContent);

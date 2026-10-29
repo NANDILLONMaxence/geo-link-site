@@ -8,6 +8,7 @@ from io import StringIO
 from datetime import datetime
 from typing import Dict, List, Tuple
 from .convert import converter
+from .. import __version__
 
 
 class DataStorage:
@@ -119,7 +120,7 @@ class DataStorage:
         output = StringIO()
 
         fieldnames = [
-            'type', 'id', 'name', 'x_l93', 'y_l93', 'lat', 'lng',
+            'type', 'id', 'name', 'lat_dms', 'lng_dms', 'lat', 'lng',
             'min_links', 'max_links', 'link_ids',
             'site_a', 'site_b', 'distance_km', 'status', 'link_type', 'manual', 'excluded'
         ]
@@ -156,8 +157,8 @@ class DataStorage:
                 'type': 'link',
                 'id': link['id'],
                 'name': '',
-                'x_l93': '',
-                'y_l93': '',
+                'lat_dms': '',
+                'lng_dms': '',
                 'lat': '',
                 'lng': '',
                 'min_links': '',
@@ -178,8 +179,8 @@ class DataStorage:
                 'type': 'link',
                 'id': link['id'],
                 'name': '',
-                'x_l93': '',
-                'y_l93': '',
+                'lat_dms': '',
+                'lng_dms': '',
                 'lat': '',
                 'lng': '',
                 'min_links': '',
@@ -208,10 +209,13 @@ class DataStorage:
         try:
             data = json.loads(json_content)
 
+            if not isinstance(data, dict):
+                return [], [], [], {}, [], "Erreur parsing JSON: un objet JSON est attendu"
+
             # Déterminer le format (GeoJSON ou ancien JSON)
             if data.get('type') == 'FeatureCollection':
                 # Nouveau format GeoJSON
-                return DataStorage._parse_geojson(data)
+                result = DataStorage._parse_geojson(data)
             else:
                 # Ancien format JSON (rétrocompatibilité)
                 sites = data.get('sites', [])
@@ -223,10 +227,56 @@ class DataStorage:
                 if len(sites) > 55:
                     return [], [], [], {}, [], "Erreur: Maximum 55 sites autorisés"
 
-                return sites, auto_links, manual_links, params, excluded_links, ""
+                result = (sites, auto_links, manual_links, params, excluded_links, "")
+
+            sites, auto_links, manual_links, params, excluded_links, error = result
+            if not error:
+                error = DataStorage._validate_loaded(sites, auto_links + manual_links, params, excluded_links)
+            if error:
+                return [], [], [], {}, [], error
+            return result
 
         except Exception as e:
             return [], [], [], {}, [], f"Erreur parsing JSON: {str(e)}"
+
+    @staticmethod
+    def _validate_loaded(sites: List, links: List, params, excluded_links) -> str:
+        """
+        Vérifie la structure d'une sauvegarde chargée.
+
+        Returns:
+            Message d'erreur, ou "" si la sauvegarde est exploitable.
+        """
+        if not isinstance(sites, list) or not isinstance(links, list):
+            return "Erreur: 'sites' et 'links' doivent être des listes"
+        if not isinstance(params, dict) or not isinstance(excluded_links, list):
+            return "Erreur: 'params' doit être un objet et 'exclusions.links' une liste"
+
+        for site in sites:
+            if not isinstance(site, dict) or not isinstance(site.get('id'), str) or not site['id'].strip():
+                return "Erreur: chaque site doit avoir un 'id' texte non vide"
+            try:
+                lat, lng = float(site['lat']), float(site['lng'])
+                site['min_links'] = int(site.get('min_links', 0))
+                site['max_links'] = int(site.get('max_links', 2))
+            except (KeyError, TypeError, ValueError):
+                return f"Erreur: coordonnées ou contraintes invalides pour le site {site['id']}"
+            if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                return f"Erreur: coordonnées hors limites pour le site {site['id']}"
+            site['lat'], site['lng'] = lat, lng
+            site.setdefault('link_ids', [])
+            site.setdefault('status', 'ok')
+
+        for link in links:
+            if not isinstance(link, dict) or not all(isinstance(link.get(k), str) for k in ('id', 'site_a', 'site_b')):
+                return "Erreur: chaque liaison doit avoir 'id', 'site_a' et 'site_b' texte"
+            try:
+                link['distance_km'] = float(link.get('distance_km') or 0)
+            except (TypeError, ValueError):
+                return f"Erreur: distance invalide pour la liaison {link['id']}"
+            link.setdefault('status', 'active')
+
+        return ""
 
     @staticmethod
     def _parse_geojson(geojson_data: Dict) -> Tuple[List[Dict], List[Dict], List[Dict], Dict, List[str], str]:
@@ -399,7 +449,7 @@ class DataStorage:
             'properties': {
                 'meta': {
                     'created': datetime.now().isoformat(),
-                    'app_version': '2.0',
+                    'app_version': __version__,
                     'format': 'GeoJSON',
                     'crs': 'EPSG:4326'
                 },
@@ -484,10 +534,12 @@ class DataStorage:
                     }
                 })
 
+        # Échapper <, > et & : un nom de site contenant "</script>" ne doit pas
+        # pouvoir sortir du bloc <script> où le GeoJSON est injecté.
         geojson_data = json.dumps({
             'type': 'FeatureCollection',
             'features': features
-        })
+        }).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -495,7 +547,8 @@ class DataStorage:
     <meta charset="utf-8">
     <title>Carte Geo Site - Export</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
         body {{ margin: 0; padding: 0; }}
         #map {{ position: absolute; top: 0; bottom: 0; width: 100%; }}
@@ -541,7 +594,8 @@ class DataStorage:
             <span>Liaison manuelle</span>
         </div>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         var map = L.map('map').setView([46.5, 2.5], 6);
 
@@ -550,6 +604,12 @@ class DataStorage:
         }}).addTo(map);
 
         var geojsonData = {geojson_data};
+
+        function esc(value) {{
+            return String(value).replace(/[&<>"']/g, function(c) {{
+                return {{'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}}[c];
+            }});
+        }}
 
         L.geoJSON(geojsonData, {{
             pointToLayer: function(feature, latlng) {{
@@ -563,7 +623,7 @@ class DataStorage:
                         fillOpacity: 0.8
                     }});
 
-                    marker.bindTooltip(feature.properties.id, {{
+                    marker.bindTooltip(esc(feature.properties.id), {{
                         permanent: true,
                         direction: 'right',
                         className: 'site-label'
@@ -571,7 +631,7 @@ class DataStorage:
 
                     // Popup avec informations détaillées
                     var popupContent = '<div style="font-size:12px;">' +
-                        '<strong>' + feature.properties.id + '</strong><br>' +
+                        '<strong>' + esc(feature.properties.id) + '</strong><br>' +
                         'Lat: ' + latlng.lat.toFixed(6) + '<br>' +
                         'Lng: ' + latlng.lng.toFixed(6) + '<br>' +
                         'Min/Max liens: ' + feature.properties.min_links + '/' + feature.properties.max_links + '<br>' +
@@ -610,10 +670,10 @@ class DataStorage:
                     // Popup détaillé pour la liaison
                     var typeText = feature.properties.link_type === 'manual' ? 'Manuelle' : 'Automatique';
                     var popupContent = '<div style="font-size:12px;">' +
-                        '<strong>ID:</strong> ' + feature.properties.id + '<br>' +
+                        '<strong>ID:</strong> ' + esc(feature.properties.id) + '<br>' +
                         '<strong>Type:</strong> ' + typeText + '<br>' +
-                        '<strong>Site A:</strong> ' + feature.properties.site_a + '<br>' +
-                        '<strong>Site B:</strong> ' + feature.properties.site_b + '<br>' +
+                        '<strong>Site A:</strong> ' + esc(feature.properties.site_a) + '<br>' +
+                        '<strong>Site B:</strong> ' + esc(feature.properties.site_b) + '<br>' +
                         '<strong>Distance:</strong> ' + distance.toFixed(2) + ' km<br>' +
                         '<strong>Statut:</strong> Actif' +
                         '</div>';

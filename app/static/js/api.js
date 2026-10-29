@@ -2,6 +2,16 @@
  * API client pour communiquer avec le backend Flask
  */
 
+/**
+ * Échappe une valeur avant insertion dans du HTML (innerHTML, popups Leaflet).
+ * Les noms de sites viennent de fichiers importés : ils ne sont pas fiables.
+ */
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
 const API = {
     /**
      * Récupère l'état actuel

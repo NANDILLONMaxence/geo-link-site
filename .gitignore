@@ -49,8 +49,6 @@ instance/
 *.log
 logs/
 
-# Docker
-.dockerignore
 
 # Coverage / Tests
 .coverage
