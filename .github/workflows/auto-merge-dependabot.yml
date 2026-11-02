@@ -22,7 +22,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # « --auto » attend que les checks requis par la protection de branche
-      # (job « CI OK ») soient verts : une mise à jour qui casse la CI reste ouverte.
+      # (jobs « CI OK » et « Dependency review ») soient verts : une mise à jour qui
+      # casse la CI ou introduit une vulnérabilité reste ouverte.
       # Les mises à jour majeures restent en revue manuelle.
       - name: Enable auto-merge for patch and minor updates
         if: >-
