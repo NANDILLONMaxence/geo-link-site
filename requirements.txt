@@ -13,4 +13,4 @@ pyproj==3.8.0
 networkx==3.7
 
 # Serveur WSGI de production
-gunicorn==26.2.0
+gunicorn==27.0.1
